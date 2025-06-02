@@ -187,6 +187,104 @@ FROM hourly_sale
 GROUP BY shift
 ```
 
+11. **Which customer segment (age groups) generates the highest average total sales?**
+```sql 
+WITH age_segments
+AS
+(
+SELECT *, 
+CASE
+	WHEN age < 25 THEN 'Gen Z Shopper'
+	WHEN age BETWEEN 25 AND 34 THEN 'Young Adult'
+	WHEN age BETWEEN 35 AND 44 THEN 'Established Adult'
+	WHEN age BETWEEN 45 AND 54 THEN 'Prime Earner'
+	ELSE 'Senior Shopper'
+	END AS age_segments
+FROM retail_sales
+)
+SELECT
+	age_segments,
+	ROUND(AVG(total_sale)::numeric,2) AS avg_sales_demo
+FROM age_segments
+GROUP BY age_segments
+ORDER BY avg_sales_demo DESC
+```
+
+12.What is the profit margin for each category and which category is the most profitable overall?
+```sql
+SELECT
+    category,
+    ROUND(SUM(total_sale - cogs)::numeric,2) AS total_profit,
+    ROUND(AVG(total_sale - cogs)::numeric, 2) AS avg_profit_per_transaction
+FROM retail_sales
+GROUP BY category
+ORDER BY total_profit DESC;
+```
+
+13. What is the return rate (low quantity but high frequency) by customer ID?
+```sql
+SELECT
+    customer_id,
+    COUNT(*) AS low_quantity_orders,
+    ROUND(AVG(quantity)::numeric, 2) AS avg_quantity,
+    SUM(total_sale) AS total_spent
+FROM retail_sales
+WHERE quantity <= 2
+GROUP BY customer_id
+HAVING COUNT(*) > 1
+ORDER BY low_quantity_orders DESC;
+```
+
+14. Which hour of the day sees the highest total sales?
+ ```sql
+SELECT 
+	EXTRACT(HOUR FROM sale_time) AS sale_hour,
+	SUM(total_sale) AS total_sales
+FROM retail_sales
+GROUP BY sale_hour
+ORDER BY total_sales DESC
+LIMIT 1;
+```
+
+15. Which hour of the day sees the lowest total sales?
+```sql
+SELECT 
+	EXTRACT(HOUR FROM sale_time) AS sale_hour,
+	SUM(total_sale) AS total_sales
+FROM retail_sales
+GROUP BY sale_hour
+ORDER BY total_sales ASC
+LIMIT 1;
+```
+
+16. What is the monthly growth rate in total sales, and are there months with negative growth?
+```sql
+WITH monthly_sales AS (
+    SELECT
+        DATE_TRUNC('month', sale_date) AS month,
+        SUM(total_sale) AS total_sales
+    FROM retail_sales
+    GROUP BY DATE_TRUNC('month', sale_date)
+),
+growth_calc AS (
+    SELECT
+        month,
+        total_sales,
+        LAG(total_sales) OVER (ORDER BY month) AS previous_month_sales,
+        ROUND(
+            (100.0 * (total_sales - LAG(total_sales) OVER (ORDER BY month)) 
+             / NULLIF(LAG(total_sales) OVER (ORDER BY month), 0))::numeric,
+            2
+        ) AS growth_rate_percent
+    FROM monthly_sales
+)
+SELECT *
+FROM growth_calc
+ORDER BY month;
+```
+
+
+
 ## Findings
 
 - **Customer Demographics**: The dataset includes customers from various age groups, with sales distributed across different categories such as Clothing and Beauty.
@@ -201,27 +299,12 @@ GROUP BY shift
 - **Customer Insights**: Reports on top customers and unique customer counts per category.
 
 ## Conclusion
+This retail sales analysis project provided a comprehensive look into customer behavior, sales performance, and category-level profitability across a full calendar year. Using PostgreSQL and pgAdmin 4, we explored key business intelligence questions that revealed patterns in transaction volume, purchasing habits, and revenue-driving segments.
 
-This project serves as a comprehensive introduction to SQL for data analysts, covering database setup, data cleaning, exploratory data analysis, and business-driven SQL queries. The findings from this project can help drive business decisions by understanding sales patterns, customer behavior, and product performance.
+Through structured SQL queries, we uncovered high-performing age demographics (with Prime Earners and Established Adults driving the highest average sales), identified the most profitable product categories, and measured month-over-month sales growth, flagging periods of decline for strategic review. Additionally, time-based insights highlighted the most active sales hours, and customer segmentation revealed potential return behavior or sampling trends among low-quantity, high-frequency shoppers.
 
-## How to Use
+These findings enable more informed decision-making around targeted marketing, inventory planning, staffing, and customer retention strategies. Future recommendations include visualizing this data in dashboards using Power BI and integrating predictive analytics to forecast seasonal performance and optimize category offerings.
 
-1. **Clone the Repository**: Clone this project repository from GitHub.
-2. **Set Up the Database**: Run the SQL scripts provided in the `database_setup.sql` file to create and populate the database.
-3. **Run the Queries**: Use the SQL queries provided in the `analysis_queries.sql` file to perform your analysis.
-4. **Explore and Modify**: Feel free to modify the queries to explore different aspects of the dataset or answer additional business questions.
+This project demonstrates how data-driven storytelling can transform raw transactional data into actionable business insights, setting the foundation for scalable analytics solutions in retail environments
 
-## Author - Zero Analyst
 
-This project is part of my portfolio, showcasing the SQL skills essential for data analyst roles. If you have any questions, feedback, or would like to collaborate, feel free to get in touch!
-
-### Stay Updated and Join the Community
-
-For more content on SQL, data analysis, and other data-related topics, make sure to follow me on social media and join our community:
-
-- **YouTube**: [Subscribe to my channel for tutorials and insights](https://www.youtube.com/@zero_analyst)
-- **Instagram**: [Follow me for daily tips and updates](https://www.instagram.com/zero_analyst/)
-- **LinkedIn**: [Connect with me professionally](https://www.linkedin.com/in/najirr)
-- **Discord**: [Join our community to learn and grow together](https://discord.gg/36h5f2Z5PK)
-
-Thank you for your support, and I look forward to connecting with you!
